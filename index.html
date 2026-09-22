@@ -628,6 +628,14 @@
   }
   .gate-exit:hover{color:var(--ink);}
   #ownerLock .gate-row{margin-top:4px;}
+  .gate-stack input{width:100%;}
+  #gateCreds{margin-bottom:10px;}
+  .owner-signout{
+    background:none;border:1px solid var(--line);border-radius:7px;
+    padding:6px 12px;font-size:12.5px;cursor:pointer;color:var(--muted);
+    font-family:'Work Sans',sans-serif;margin-left:10px;
+  }
+  .owner-signout:hover{border-color:var(--full);color:var(--full);}
   #ownerLock .gate-public-note{border-top:1px solid var(--line-soft);}
   .gate-box{
     background:var(--white);border:1px solid var(--line);border-radius:12px;
@@ -1047,7 +1055,15 @@
     <div class="gate-box gate-centered">
       <button type="button" id="gateExit" class="gate-exit" aria-label="Close and return to the client site">&times;</button>
       <h3>Owner access</h3>
-      <p>This area holds the schedule, client records and job photos. Enter the owner PIN to continue.</p>
+      <p>This area holds the schedule, client records and job photos. Sign in to continue.</p>
+      <div id="gateCreds">
+        <div class="gate-row gate-stack">
+          <input type="email" id="gateEmail" placeholder="Email" autocomplete="username" inputmode="email">
+        </div>
+        <div class="gate-row gate-stack">
+          <input type="password" id="gatePass" placeholder="Password" autocomplete="current-password">
+        </div>
+      </div>
       <div class="gate-row">
         <input type="password" id="gateInput" placeholder="PIN" inputmode="numeric" autocomplete="off">
         <button type="button" class="btn btn-primary" id="gateBtn">Unlock</button>
@@ -1060,7 +1076,7 @@
   <div id="ownerContent">
     <div class="owner-header">
       <div>
-        <h1>Schedule</h1>
+        <h1>Schedule <button type="button" id="ownerSignOut" class="owner-signout">Sign out</button></h1>
         <p class="owner-sub">Requests from the client site land here for you to confirm.</p>
       </div>
       <div class="stat-row">
@@ -1220,15 +1236,6 @@
   var MAX_REQ_PER_DAY = 5;  // how many pending requests a single day can collect
   var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  /* ===================================================================
-     EMAIL DELIVERY OF BOOKING REQUESTS
-     Paste your Web3Forms access key between the quotes below and every
-     request is emailed to you the moment a customer sends it.
-     Get a free key at https://web3forms.com (enter your email, they
-     send you the key). Leave it empty and nothing is emailed.
-     =================================================================== */
-  var FORM_ACCESS_KEY = '6e4337d7-47c3-4983-b8d9-58b9cf363f81';
-  var FORM_ENDPOINT   = 'https://api.web3forms.com/submit';
 
   var bookings = [];
   var clientCalMonth = new Date(); clientCalMonth.setDate(1);
@@ -1266,141 +1273,366 @@
     return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
   }
 
-  /* ===== Storage layer =====
-     Prefers the artifact shared database (real cross-device sync when this
-     page is published). Falls back to window.storage, then localStorage,
-     then in-memory, so the file still works opened directly. */
-  var __db = null;
-  var __dbPromise = null;
-  var __dbResolved = false;
-  var __mem = {};
+  /* ===== Storage layer — Supabase =====
+     Customer requests go into a real shared database, so the owner sees
+     them from any device. A customer may only ADD a request; they can
+     never read, change or delete anything. Reading the schedule needs
+     the owner's sign-in. Nothing is ever deleted automatically. */
+  var SUPA_URL  = 'https://tczqjkiyeceobddnehns.supabase.co';
+  var SUPA_KEY  = 'sb_publishable_PZPuARNUAo1_yZMrKwG7vA_dLqpQ88T';
+  var SUPA_REST = SUPA_URL + '/rest/v1/';
+  var SUPA_AUTH = SUPA_URL + '/auth/v1/';
+  var SESSION_KEY = 'midmade_session';
+  var CLIENT_TOKEN_KEY = 'midmade_client_token';
 
-  async function getDb(){
-    if(__db) return __db;
-    if(__dbResolved) return null;
-    // Memoize the PROMISE so parallel callers all await the same handshake.
-    // (Flagging before the await let a second caller fall through to local
-    //  storage while the first was still connecting.)
-    if(__dbPromise) return __dbPromise;
-    __dbPromise = (async function(){
-      try{
-        if(typeof window !== 'undefined' && window.claude && typeof window.claude.use === 'function'){
-          var TIMEOUT = {};
-          var got = await Promise.race([
-            window.claude.use('db'),
-            new Promise(function(res){ setTimeout(function(){ res(TIMEOUT); }, 2500); })
-          ]);
-          if(got === TIMEOUT){
-            // slow handshake: don't freeze the UI, but allow a later retry
-            __dbPromise = null;
-            return null;
-          }
-          __db = got || null;
-          __dbResolved = true;
-          return __db;
-        }
-      }catch(e){ __db = null; }
-      __dbResolved = true;
-      return null;
-    })();
-    return __dbPromise;
+  var __mem = {};
+  var __session = null;
+  var __serverRows = {};   // id -> row as the server last gave it (for diffing)
+
+  function lsGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ return null; } }
+  function lsSet(k,v){ try{ window.localStorage.setItem(k,v); }catch(e){} }
+  function lsDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
+
+  function loadSession(){
+    try{ var raw = lsGet(SESSION_KEY); __session = raw ? JSON.parse(raw) : null; }
+    catch(e){ __session = null; }
+    return __session;
+  }
+  function saveSession(s){
+    __session = s;
+    if(s) lsSet(SESSION_KEY, JSON.stringify(s)); else lsDel(SESSION_KEY);
+  }
+  function ownerSignedIn(){ return !!(__session && __session.access_token); }
+
+  function clientToken(){
+    var t = lsGet(CLIENT_TOKEN_KEY);
+    if(!t || t.length < 20){
+      t = 'ct_';
+      var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      for(var i=0;i<32;i++) t += chars.charAt(Math.floor(Math.random()*chars.length));
+      lsSet(CLIENT_TOKEN_KEY, t);
+    }
+    return t;
   }
 
-  async function storeGet(key){
-    var db = await getDb();
-    if(db){
+  function sessionFrom(d){
+    if(!d || !d.access_token) return null;
+    var now = Math.floor(Date.now()/1000);
+    return {
+      access_token: d.access_token,
+      refresh_token: d.refresh_token || null,
+      expires_at: d.expires_at || (now + (d.expires_in || 3600))
+    };
+  }
+
+  async function ownerSignIn(email, password){
+    try{
+      var res = await fetch(SUPA_AUTH + 'token?grant_type=password', {
+        method:'POST',
+        headers:{ 'apikey': SUPA_KEY, 'Content-Type':'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+      var d = await res.json().catch(function(){ return null; });
+      if(!res.ok || !d || !d.access_token){
+        return { ok:false, message: (d && (d.msg || d.error_description)) || 'Could not sign in.' };
+      }
+      saveSession(sessionFrom(d));
+      return { ok:true };
+    }catch(e){
+      return { ok:false, message:'No connection. Check your internet and try again.' };
+    }
+  }
+
+  async function ownerRefresh(){
+    if(!__session || !__session.refresh_token) return false;
+    try{
+      var res = await fetch(SUPA_AUTH + 'token?grant_type=refresh_token', {
+        method:'POST',
+        headers:{ 'apikey': SUPA_KEY, 'Content-Type':'application/json' },
+        body: JSON.stringify({ refresh_token: __session.refresh_token })
+      });
+      var d = await res.json().catch(function(){ return null; });
+      if(!res.ok || !d || !d.access_token){ saveSession(null); return false; }
+      saveSession(sessionFrom(d));
+      return true;
+    }catch(e){ return false; }
+  }
+
+  async function ownerSignOut(){
+    var tok = __session && __session.access_token;
+    saveSession(null);
+    __serverRows = {};
+    if(tok){
       try{
-        var snap = await db.doc('app/' + key).get();
-        if(snap && snap.exists){
-          var d = snap.data();
-          if(d && typeof d.v === 'string') return d.v;
+        await fetch(SUPA_AUTH + 'logout', {
+          method:'POST',
+          headers:{ 'apikey': SUPA_KEY, 'Authorization':'Bearer ' + tok }
+        });
+      }catch(e){}
+    }
+  }
+
+  async function freshToken(){
+    if(!ownerSignedIn()) return null;
+    var now = Math.floor(Date.now()/1000);
+    if(__session.expires_at && (__session.expires_at - now) < 60){
+      if(!(await ownerRefresh())) return null;
+    }
+    return __session.access_token;
+  }
+
+  // One place every database call goes through.
+  async function supaFetch(path, opts, needOwner){
+    opts = opts || {};
+    var token = SUPA_KEY;
+    if(needOwner){
+      var t = await freshToken();
+      if(!t) return { ok:false, status:401, notSignedIn:true, json:async function(){ return null; }, text:async function(){ return ''; } };
+      token = t;
+    }
+    var headers = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    };
+    if(opts.headers){ for(var k in opts.headers) headers[k] = opts.headers[k]; }
+    var init = { method: opts.method || 'GET', headers: headers };
+    if(opts.body) init.body = opts.body;
+    var res = await fetch(SUPA_REST + path, init);
+    if(res.status === 401 && needOwner){
+      if(await ownerRefresh()){
+        headers.Authorization = 'Bearer ' + __session.access_token;
+        res = await fetch(SUPA_REST + path, { method: init.method, headers: headers, body: init.body });
+      }
+    }
+    return res;
+  }
+
+  /* ---- turning database rows into the booking objects the site uses ---- */
+  function rowToBooking(r){
+    return {
+      id: r.id,
+      dateISO: r.date_iso || null,
+      time: r.job_time || null,
+      name: r.name || '',
+      phone: r.phone || '',
+      email: r.email || '',
+      address: r.address || '',
+      service: r.service || 'residential',
+      notes: r.notes || '',
+      status: r.status || 'pending',
+      crewNote: r.owner_note || '',
+      createdAt: r.created_at || new Date().toISOString(),
+      clientPhotos: Array.isArray(r.client_photos) ? r.client_photos : []
+    };
+  }
+  function bookingToRow(b){
+    return {
+      date_iso: b.dateISO || null,
+      job_time: b.time || null,
+      name: b.name || '',
+      phone: b.phone || '',
+      email: b.email || null,
+      address: b.address || '',
+      service: b.service || 'residential',
+      notes: b.notes || null,
+      status: b.status || 'pending',
+      owner_note: b.crewNote || null,
+      client_photos: b.clientPhotos || []
+    };
+  }
+  function sameRow(a, b){
+    var ka = bookingToRow(a), kb = bookingToRow(b);
+    for(var k in ka){
+      if(k === 'client_photos'){
+        if(JSON.stringify(ka[k]) !== JSON.stringify(kb[k])) return false;
+      } else if((ka[k] || '') !== (kb[k] || '')) return false;
+    }
+    return true;
+  }
+
+  /* ---- generic key/value, owner only (photo log, reviews, blocked, chat) ---- */
+  async function storeGet(key){
+    if(!ownerSignedIn()) return __mem[key] || null;
+    try{
+      var res = await supaFetch('app_state?select=value&key=eq.' + encodeURIComponent(key), {}, true);
+      if(res && res.ok){
+        var rows = await res.json();
+        if(rows && rows.length && typeof rows[0].value === 'string'){
+          __mem[key] = rows[0].value;
+          return rows[0].value;
         }
         return null;
-      }catch(e){ /* fall through */ }
-    }
-    try{
-      if(typeof window !== 'undefined' && window.storage){
-        var res = await window.storage.get(key, true);
-        return res && res.value ? res.value : null;
       }
-    }catch(e){ /* fall through */ }
-    try{
-      var ls = window.localStorage.getItem('midmade_' + key);
-      if(ls !== null) return ls;
-    }catch(e){ /* fall through */ }
+    }catch(e){}
     return __mem[key] || null;
   }
-
   async function storeSet(key, value){
-    var ok = false;
-    var db = await getDb();
-    if(db){
-      try{
-        await db.doc('app/' + key).set({ v: value, updatedAt: new Date().toISOString() });
-        ok = true;
-      }catch(e){ ok = false; }
-    }
-    if(!ok){
-      try{
-        if(typeof window !== 'undefined' && window.storage){
-          await window.storage.set(key, value, true);
-          ok = true;
-        }
-      }catch(e){ ok = false; }
-    }
-    var lsOk = false;
-    try{ window.localStorage.setItem('midmade_' + key, value); lsOk = true; }catch(e){}
     __mem[key] = value;
-    return ok || lsOk;
+    if(!ownerSignedIn()) return false;
+    try{
+      var res = await supaFetch('app_state?on_conflict=key', {
+        method:'POST',
+        headers:{ 'Prefer':'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
+      }, true);
+      return !!(res && res.ok);
+    }catch(e){ return false; }
   }
 
-  // Ids present at our last read. Anything in storage that is NOT here and NOT
-  // in the copy we're writing was created by another device after we read, so
-  // it must be preserved instead of overwritten (whole-list writes otherwise
-  // silently destroy a request submitted at the same moment).
-  var __knownBookingIds = null;
+  // Chat is still a single owner-only record, so it keeps the merge-on-write
+  // guard that stops two devices overwriting each other.
   var __knownMessageIds = null;
-
-  function idSet(arr){
-    var m = {};
-    for(var i=0;i<arr.length;i++){ if(arr[i] && arr[i].id) m[arr[i].id] = 1; }
-    return m;
-  }
   function mergeConcurrent(mine, latest, known){
     var have = idSet(mine);
     var out = mine.slice();
     for(var i=0;i<latest.length;i++){
       var r = latest[i];
       if(!r || !r.id) continue;
-      if(have[r.id]) continue;              // we already have it
-      if(known && known[r.id]) continue;    // we deliberately removed it
-      out.push(r);                          // arrived while we were working
+      if(have[r.id]) continue;
+      if(known && known[r.id]) continue;
+      out.push(r);
     }
     return out;
   }
 
-  async function loadBookings(){
-    try{
-      var res = await storeGet('bookings');
-      var arr = res ? JSON.parse(res) : [];
-      __knownBookingIds = idSet(arr);
-      return arr;
-    }catch(e){
-      return [];
-    }
+  /* ---- bookings live in the requests table, one row each ----
+     loadBookings / saveBookings keep the exact same shape they always had,
+     so every screen and button in the rest of the site is untouched.
+     saveBookings works out what changed and sends only that, which means
+     two devices editing at once no longer wipe each other. */
+
+  function idSet(arr){
+    var m = {};
+    for(var i=0;i<arr.length;i++){ if(arr[i] && arr[i].id) m[arr[i].id] = 1; }
+    return m;
   }
-  async function saveBookings(arr){
+
+  async function loadBookings(){
+    if(!ownerSignedIn()) return [];
     try{
-      var latestRaw = await storeGet('bookings');
-      var latest = latestRaw ? JSON.parse(latestRaw) : [];
-      var merged = mergeConcurrent(arr, latest, __knownBookingIds);
-      var _ok = await storeSet('bookings', JSON.stringify(merged));
-      if(_ok) __knownBookingIds = idSet(merged);
-      return _ok;
-    }catch(e){
-      console.error('storage error', e);
-      return false;
-    }
+      var res = await supaFetch('requests?select=*&order=created_at.desc', {}, true);
+      if(!res || !res.ok) return [];
+      var rows = await res.json();
+      if(!Array.isArray(rows)) return [];
+      __serverRows = {};
+      var out = [];
+      for(var i=0;i<rows.length;i++){
+        var b = rowToBooking(rows[i]);
+        // Keep our OWN copy of what the server said. Holding the same object
+        // the rest of the page edits would make every change look like "no
+        // change", and the owner's edits would never be sent.
+        __serverRows[b.id] = JSON.parse(JSON.stringify(b));
+        out.push(b);
+      }
+      return out;
+    }catch(e){ return []; }
+  }
+
+  async function saveBookings(arr){
+    if(!ownerSignedIn()) return false;
+    arr = Array.isArray(arr) ? arr : [];
+    var ok = true;
+    var here = idSet(arr);
+
+    try{
+      // rows the owner removed
+      for(var id in __serverRows){
+        if(here[id]) continue;
+        var del = await supaFetch('requests?id=eq.' + encodeURIComponent(id), {
+          method:'DELETE', headers:{ 'Prefer':'return=minimal' }
+        }, true);
+        if(del && del.ok) delete __serverRows[id]; else ok = false;
+      }
+
+      // rows added or changed
+      for(var i=0;i<arr.length;i++){
+        var b = arr[i];
+        if(!b) continue;
+        var known = b.id ? __serverRows[b.id] : null;
+
+        if(!known){
+          var ins = await supaFetch('requests', {
+            method:'POST',
+            headers:{ 'Prefer':'return=representation' },
+            body: JSON.stringify(Object.assign({ client_token: clientToken() }, bookingToRow(b)))
+          }, true);
+          if(ins && ins.ok){
+            var back = await ins.json();
+            if(back && back.length){
+              b.id = back[0].id;                       // adopt the database's id
+              __serverRows[b.id] = rowToBooking(back[0]);
+            }
+          } else ok = false;
+          continue;
+        }
+
+        if(sameRow(known, b)) continue;                // nothing changed
+        var upd = await supaFetch('requests?id=eq.' + encodeURIComponent(b.id), {
+          method:'PATCH',
+          headers:{ 'Prefer':'return=minimal' },
+          body: JSON.stringify(bookingToRow(b))
+        }, true);
+        if(upd && upd.ok){
+          __serverRows[b.id] = JSON.parse(JSON.stringify(b));
+        } else ok = false;
+      }
+    }catch(e){ return false; }
+    return ok;
+  }
+
+  /* ---- what a CUSTOMER does: add one request, nothing else ---- */
+  async function submitRequestRow(bk){
+    try{
+      var res = await supaFetch('requests', {
+        method:'POST',
+        headers:{ 'Prefer':'return=representation' },
+        body: JSON.stringify(Object.assign({ client_token: clientToken() }, bookingToRow(bk)))
+      }, false);
+      if(!res || !res.ok) return false;
+      var back = await res.json().catch(function(){ return null; });
+      if(back && back.length && back[0].id) bk.id = back[0].id;
+      return true;
+    }catch(e){ return false; }
+  }
+
+  /* ---- how many jobs each day already has, for the public calendar.
+         Returns only dates and counts: no names, no addresses. ---- */
+  var __publicCounts = null;
+  async function publicDayCounts(){
+    try{
+      var res = await supaFetch('rpc/day_counts', { method:'POST', body:'{}' }, false);
+      if(!res || !res.ok) return null;
+      var rows = await res.json();
+      var m = {};
+      for(var i=0;i<rows.length;i++){
+        m[rows[i].day] = {
+          confirmed: Number(rows[i].confirmed) || 0,
+          pending:   Number(rows[i].pending)   || 0
+        };
+      }
+      return m;
+    }catch(e){ return null; }
+  }
+
+  // A visitor cannot read the schedule, so the public calendar gets its
+  // day availability from this counts-only helper: dates and numbers, no
+  // names and no addresses.
+  async function loadPublicAvailability(){
+    if(ownerSignedIn()){ __publicCounts = null; return; }
+    __publicCounts = await publicDayCounts();
+  }
+
+  /* ---- a customer checking the request they themselves sent ---- */
+  async function myOwnRequests(){
+    try{
+      var res = await supaFetch('rpc/my_request', {
+        method:'POST', body: JSON.stringify({ tok: clientToken() })
+      }, false);
+      if(!res || !res.ok) return [];
+      var rows = await res.json();
+      return Array.isArray(rows) ? rows : [];
+    }catch(e){ return []; }
   }
 
   async function loadMessages(){
@@ -1458,11 +1690,17 @@
   /* Confirmed jobs only. Pending requests never block a day, so a client can
      always ask; the owner decides what actually gets scheduled. */
   function dayLoadForDate(iso){
+    if(!ownerSignedIn() && __publicCounts){
+      return (__publicCounts[iso] && __publicCounts[iso].confirmed) || 0;
+    }
     return bookings.filter(function(b){
       return b.dateISO === iso && (b.status === 'upcoming' || b.status === 'completed');
     }).length;
   }
   function pendingForDate(iso){
+    if(!ownerSignedIn() && __publicCounts){
+      return (__publicCounts[iso] && __publicCounts[iso].pending) || 0;
+    }
     return bookings.filter(function(b){
       return b.dateISO === iso && b.status === 'pending';
     }).length;
@@ -1681,37 +1919,6 @@
 
   /* Emails one request to the owner. Resolves true only when the service
      confirms it. Never throws: a delivery problem must not break the form. */
-  async function emailRequest(bk){
-    if(!FORM_ACCESS_KEY) return null;   // not configured yet
-    try{
-      var photoNote = (bk.clientPhotos && bk.clientPhotos.length)
-        ? bk.clientPhotos.length + ' photo(s) attached on the website'
-        : 'none';
-      var res = await fetch(FORM_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          access_key: FORM_ACCESS_KEY,
-          subject: 'New request \u2014 ' + bk.name + ' \u2014 ' + fmtDateLong(bk.dateISO),
-          from_name: 'Mid Made Window Cleaning website',
-          name: bk.name,
-          phone: bk.phone,
-          email: bk.email || 'not given',
-          address: bk.address,
-          property_type: (SERVICES[bk.service] || {}).label || bk.service,
-          requested_date: fmtDateLong(bk.dateISO),
-          details: bk.notes,
-          photos: photoNote,
-          sent_at: new Date().toLocaleString()
-        })
-      });
-      var data = await res.json();
-      return !!(data && data.success);
-    }catch(err){
-      return false;
-    }
-  }
-
   function markRequestUnsaved(){
     var ov = document.getElementById('reqSentOverlay');
     if(!ov) return;
@@ -1801,17 +2008,11 @@
     if(reqSentTimer) clearTimeout(reqSentTimer);
     reqSentTimer = setTimeout(dismissRequestSentScreen, 5000);
 
-    Promise.all([
-      saveBookings(bookings).catch(function(){ return false; }),
-      emailRequest(newBooking),
-      getDb().catch(function(){ return null; })
-    ]).then(function(r){
-      var emailed  = r[1];           // null = not configured, true/false = tried
-      var sharedDb = !!r[2];         // a schedule the owner can actually read
-      // A save into this visitor's own browser is NOT delivery: without a
-      // shared schedule or an email, the request never reaches the owner.
-      var reachedOwner = (emailed === true) || (r[0] !== false && sharedDb);
-      if(!reachedOwner) markRequestUnsaved();
+    // The request goes straight into the shared database, where the owner
+    // will find it on any device. If that write fails the customer is told
+    // to phone instead, rather than being left thinking it went through.
+    submitRequestRow(newBooking).then(function(saved){
+      if(!saved) markRequestUnsaved();
     }).catch(function(){ markRequestUnsaved(); });
 
     var col = document.getElementById('formCol');
@@ -1971,6 +2172,21 @@
     // the owner poll pauses for the same reason.
     var dm = document.getElementById('dayModal');
     if(openEditorId || (dm && dm.style.display === 'flex')) return;
+
+    // A customer cannot read the schedule, so they check their OWN request
+    // through the token their browser holds. Without this they would be told
+    // their request had been declined seconds after sending it.
+    if(!ownerSignedIn()){
+      var mine = await myOwnRequests();
+      if(!mine.length) return;                 // no answer yet: leave it alone
+      var row = mine.find(function(x){ return x.id === myLastBookingId; });
+      if(row && row.status !== 'declined') return;
+      if(!row) return;                         // not found: say nothing rather than guess
+      stopClientStatusWatch();
+      resetClientBooking();
+      return;
+    }
+
     // Read into a local: this watcher must never overwrite the owner's working copy.
     var latest = await loadBookings();
     var b = latest.find(function(x){ return x.id === myLastBookingId; });
@@ -3821,26 +4037,70 @@
     if(ownerPollTimer){ clearInterval(ownerPollTimer); ownerPollTimer = null; }
   }
 
+  // Show the email and password boxes only when there is no sign-in yet.
+  function refreshGateFields(){
+    var creds = document.getElementById('gateCreds');
+    if(creds) creds.style.display = ownerSignedIn() ? 'none' : '';
+    var p = document.querySelector('#ownerLock .gate-box p');
+    if(p) p.textContent = ownerSignedIn()
+      ? 'Signed in. Enter your PIN to open the schedule.'
+      : 'This area holds the schedule, client records and job photos. Sign in to continue.';
+  }
+
   async function tryUnlock(){
     var input = document.getElementById('gateInput');
-    var err = document.getElementById('gateErr');
-    var val = (input && input.value || '').trim();
-    if(val === OWNER_PIN){
-      ownerUnlocked = true;
-      if(input) input.value = '';
-      if(err) err.textContent = '';
-      applyOwnerLock();
-      await refreshOwnerData();
-      startOwnerPoll();
-      setOwnerTab('schedule');
-      renderStats();
-      renderOwnerCalendar();
-      renderApptList();
-      renderRequestList();
-    } else {
+    var err   = document.getElementById('gateErr');
+    var btn   = document.getElementById('gateBtn');
+    var val   = (input && input.value || '').trim();
+
+    if(val !== OWNER_PIN){
       if(err) err.textContent = 'That PIN did not match.';
       if(input){ input.value = ''; input.focus(); }
+      return;
     }
+
+    // The PIN alone is not enough: the customer details behind this screen
+    // are only released once the database has accepted a real sign-in.
+    if(!ownerSignedIn()){
+      var em = document.getElementById('gateEmail');
+      var pw = document.getElementById('gatePass');
+      var email = (em && em.value || '').trim();
+      var pass  = (pw && pw.value || '');
+      if(!email || !pass){
+        if(err) err.textContent = 'Enter your email and password as well.';
+        return;
+      }
+      if(btn){ btn.disabled = true; btn.textContent = 'Signing in\u2026'; }
+      var out = await ownerSignIn(email, pass);
+      if(btn){ btn.disabled = false; btn.textContent = 'Unlock'; }
+      if(!out.ok){
+        if(err) err.textContent = (out.message === 'Invalid login credentials')
+          ? 'That email or password did not match.' : out.message;
+        if(pw) pw.value = '';
+        return;
+      }
+      if(pw) pw.value = '';
+    }
+
+    ownerUnlocked = true;
+    if(input) input.value = '';
+    if(err) err.textContent = '';
+    applyOwnerLock();
+    await refreshOwnerData();
+    startOwnerPoll();
+    setOwnerTab('schedule');
+    renderStats();
+    renderOwnerCalendar();
+    renderApptList();
+    renderRequestList();
+  }
+
+  async function doOwnerSignOut(){
+    await ownerSignOut();
+    ownerUnlocked = false;
+    bookings = [];
+    applyOwnerLock();
+    refreshGateFields();
   }
 
   var reqRefreshBtn = document.getElementById('reqRefreshBtn');
@@ -3854,15 +4114,24 @@
     var n = bookings.filter(function(b){ return b.status === 'pending'; }).length;
     reqRefreshBtn.textContent = 'Refresh';
     if(n === 0){
-      showNotice('No requests are in storage yet.\n\nRemember: a request only reaches here if it was sent from this same device and browser. There is no server yet, so requests made on another phone or computer will not appear.');
+      showNotice('No new requests right now.\n\nRequests sent from any device land here within a few seconds.');
     }
+  });
+
+  var signOutBtn = document.getElementById('ownerSignOut');
+  if(signOutBtn) signOutBtn.addEventListener('click', function(){
+    askConfirm('Sign out of the owner schedule on this device?', 'Sign out').then(function(yes){
+      if(yes) doOwnerSignOut();
+    });
   });
 
   var gateBtn = document.getElementById('gateBtn');
   if(gateBtn) gateBtn.addEventListener('click', tryUnlock);
-  var gateInput = document.getElementById('gateInput');
-  if(gateInput) gateInput.addEventListener('keydown', function(e){
-    if(e.key === 'Enter'){ e.preventDefault(); tryUnlock(); }
+  ['gateInput','gateEmail','gatePass'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); tryUnlock(); }
+    });
   });
 
   /* ===== Phone / text links =====
@@ -3958,6 +4227,9 @@
 
   /* ===== Init ===== */
   async function init(){
+    loadSession();
+    refreshGateFields();
+    await loadPublicAvailability();
     bookings = await loadBookings();
     photoLog = await loadPhotoLog();
     reviews = await loadReviews();
