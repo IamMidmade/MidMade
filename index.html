@@ -541,6 +541,10 @@
     width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 10px;
     font-size:13px;font-family:'Work Sans',sans-serif;box-sizing:border-box;resize:vertical;
   }
+  .rev-live{
+    font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;
+    background:#E4F1E6;color:var(--open);margin-left:6px;
+  }
   .rev-pending{
     font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;
     background:#FBEFEC;color:var(--brick-dark);
@@ -1422,6 +1426,7 @@
       notes: r.notes || '',
       status: r.status || 'pending',
       crewNote: r.owner_note || '',
+      clientToken: r.client_token || '',   // which chat thread this job belongs to
       createdAt: r.created_at || new Date().toISOString(),
       clientPhotos: Array.isArray(r.client_photos) ? r.client_photos : []
     };
@@ -1478,22 +1483,6 @@
       }, true);
       return !!(res && res.ok);
     }catch(e){ return false; }
-  }
-
-  // Chat is still a single owner-only record, so it keeps the merge-on-write
-  // guard that stops two devices overwriting each other.
-  var __knownMessageIds = null;
-  function mergeConcurrent(mine, latest, known){
-    var have = idSet(mine);
-    var out = mine.slice();
-    for(var i=0;i<latest.length;i++){
-      var r = latest[i];
-      if(!r || !r.id) continue;
-      if(have[r.id]) continue;
-      if(known && known[r.id]) continue;
-      out.push(r);
-    }
-    return out;
   }
 
   /* ---- bookings live in the requests table, one row each ----
@@ -1650,28 +1639,69 @@
     }catch(e){ return []; }
   }
 
+  /* ---- chat ----
+     Owner: reads and writes every thread.
+     Customer: reads and writes only their own, keyed on the token their
+     browser holds. One customer can never reach another's thread. */
+  var __serverMsgIds = {};
+
+  function msgRowToMsg(r){
+    return { id: r.id, bookingId: r.request_id, sender: r.sender,
+             text: r.body, ts: r.created_at };
+  }
+
   async function loadMessages(){
     try{
-      var res = await storeGet('chatMessages');
-      var arr = res ? JSON.parse(res) : [];
-      __knownMessageIds = idSet(arr);
-      return arr;
-    }catch(e){
-      return [];
-    }
+      if(ownerSignedIn()){
+        var res = await supaFetch('messages?select=*&order=created_at.asc', {}, true);
+        if(!res || !res.ok) return [];
+        var rows = await res.json();
+        if(!Array.isArray(rows)) return [];
+        __serverMsgIds = {};
+        return rows.map(function(r){ __serverMsgIds[r.id] = 1; return msgRowToMsg(r); });
+      }
+      var r2 = await supaFetch('rpc/my_messages', {
+        method:'POST', body: JSON.stringify({ tok: clientToken() })
+      }, false);
+      if(!r2 || !r2.ok) return [];
+      var mine = await r2.json();
+      if(!Array.isArray(mine)) return [];
+      __serverMsgIds = {};
+      return mine.map(function(r){ __serverMsgIds[r.id] = 1; return msgRowToMsg(r); });
+    }catch(e){ return []; }
   }
+
+  // Only ever sends the messages that are new. Nothing is deleted here, so a
+  // message written on another device is never lost.
   async function saveMessages(arr){
+    arr = Array.isArray(arr) ? arr : [];
+    var ok = true;
     try{
-      var latestRaw = await storeGet('chatMessages');
-      var latest = latestRaw ? JSON.parse(latestRaw) : [];
-      var merged = mergeConcurrent(arr, latest, __knownMessageIds);
-      var _ok = await storeSet('chatMessages', JSON.stringify(merged));
-      if(_ok) __knownMessageIds = idSet(merged);
-      return _ok;
-    }catch(e){
-      console.error('storage error', e);
-      return false;
-    }
+      for(var i=0;i<arr.length;i++){
+        var m = arr[i];
+        if(!m || !m.text) continue;
+        if(m.id && __serverMsgIds[m.id]) continue;      // already stored
+        var row = {
+          request_id: m.bookingId || null,
+          client_token: clientToken(),
+          sender: m.sender === 'owner' ? 'owner' : 'client',
+          body: m.text
+        };
+        if(ownerSignedIn()){
+          // the owner writes into the customer's thread, so it must carry
+          // that customer's token rather than this device's
+          var bk = bookings.find(function(b){ return b.id === m.bookingId; });
+          if(bk && bk.clientToken) row.client_token = bk.clientToken;
+        }
+        var res = await supaFetch('messages', {
+          method:'POST', headers:{ 'Prefer':'return=minimal' },
+          body: JSON.stringify(row)
+        }, ownerSignedIn());
+        if(res && res.ok){ if(m.id) __serverMsgIds[m.id] = 1; }
+        else ok = false;
+      }
+    }catch(e){ return false; }
+    return ok;
   }
   function messagesForBooking(id){
     return chatMessages.filter(function(m){ return m.bookingId === id; })
@@ -3590,15 +3620,118 @@
   /* ===== Reviews ===== */
   var reviews = [];
 
+  /* ---- reviews ----
+     Visitors see the ones you have published. You see everything, including
+     ones waiting for your approval. A stranger cannot publish straight to the
+     site, and cannot read a reviewer's private token. */
+  var __serverReviews = {};
+  var PUBLIC_REVIEW_COLS = 'id,created_at,name,detail,body,stars,response,source,published,photos';
+
+  function revRowToReview(r){
+    return {
+      id: r.id, bookingId: r.request_id || '', name: r.name || '',
+      detail: r.detail || '', text: r.body || '', stars: String(r.stars || 5),
+      response: r.response || '', source: r.source || 'client',
+      published: r.published === true,
+      photosPublic: Array.isArray(r.photos) ? r.photos : [],
+      addedISO: (r.created_at || '').slice(0,10)
+    };
+  }
+  function reviewToRow(v){
+    return {
+      request_id: v.bookingId || null,
+      name: v.name || '', detail: v.detail || null,
+      body: v.text || '', stars: parseInt(v.stars, 10) || 5,
+      response: v.response || null, source: v.source || 'client',
+      published: v.published === true,
+      photos: v.photosPublic || []
+    };
+  }
+
   async function loadReviews(){
     try{
-      var res = await storeGet('reviews');
-      return res ? JSON.parse(res) : [];
-    } catch(e){ return []; }
+      if(ownerSignedIn()){
+        var res = await supaFetch('reviews?select=*&order=created_at.desc', {}, true);
+        if(!res || !res.ok) return [];
+        var rows = await res.json();
+        if(!Array.isArray(rows)) return [];
+        __serverReviews = {};
+        return rows.map(function(r){
+          var v = revRowToReview(r);
+          __serverReviews[v.id] = JSON.parse(JSON.stringify(v));
+          return v;
+        });
+      }
+      // a visitor: published reviews only, and only the harmless columns
+      var r2 = await supaFetch('reviews?select=' + PUBLIC_REVIEW_COLS +
+                               '&published=eq.true&order=created_at.desc', {}, false);
+      if(!r2 || !r2.ok) return [];
+      var pub = await r2.json();
+      return Array.isArray(pub) ? pub.map(revRowToReview) : [];
+    }catch(e){ return []; }
   }
+
   async function saveReviews(arr){
-    try{ var _ok = await storeSet('reviews', JSON.stringify(arr)); return _ok; }
-    catch(e){ return false; }
+    arr = Array.isArray(arr) ? arr : [];
+    var ok = true;
+    try{
+      if(!ownerSignedIn()){
+        // a customer leaving one: it waits for the owner to publish it
+        for(var i=0;i<arr.length;i++){
+          var v = arr[i];
+          if(!v || v.id) continue;                 // only brand-new ones
+          var row = reviewToRow(v);
+          row.source = 'client';
+          row.published = false;
+          row.client_token = clientToken();
+          var res = await supaFetch('reviews', {
+            method:'POST', headers:{ 'Prefer':'return=minimal' },
+            body: JSON.stringify(row)
+          }, false);
+          if(!(res && res.ok)) ok = false;
+        }
+        return ok;
+      }
+
+      var here = {};
+      for(var j=0;j<arr.length;j++){ if(arr[j] && arr[j].id) here[arr[j].id] = 1; }
+
+      for(var id in __serverReviews){
+        if(here[id]) continue;
+        var del = await supaFetch('reviews?id=eq.' + encodeURIComponent(id), {
+          method:'DELETE', headers:{ 'Prefer':'return=minimal' }
+        }, true);
+        if(del && del.ok) delete __serverReviews[id]; else ok = false;
+      }
+
+      for(var k=0;k<arr.length;k++){
+        var rv = arr[k];
+        if(!rv) continue;
+        var known = rv.id ? __serverReviews[rv.id] : null;
+        if(!known){
+          var ins = await supaFetch('reviews', {
+            method:'POST', headers:{ 'Prefer':'return=representation' },
+            body: JSON.stringify(reviewToRow(rv))
+          }, true);
+          if(ins && ins.ok){
+            var back = await ins.json();
+            if(back && back.length){
+              rv.id = back[0].id;
+              __serverReviews[rv.id] = JSON.parse(JSON.stringify(revRowToReview(back[0])));
+            }
+          } else ok = false;
+          continue;
+        }
+        if(JSON.stringify(reviewToRow(known)) === JSON.stringify(reviewToRow(rv))) continue;
+        var upd = await supaFetch('reviews?id=eq.' + encodeURIComponent(rv.id), {
+          method:'PATCH', headers:{ 'Prefer':'return=minimal' },
+          body: JSON.stringify(reviewToRow(rv))
+        }, true);
+        if(upd && upd.ok) __serverReviews[rv.id] = JSON.parse(JSON.stringify(rv));
+        else ok = false;
+      }
+    }catch(e){ return false; }
+    return ok;
   }
   function starString(n){
     n = Math.max(1, Math.min(5, parseInt(n,10) || 5));
@@ -3724,6 +3857,7 @@
           '<span class="rev-row-name">' + escapeHtml(r.name) + '</span> ' +
           '<span class="review-stars" style="font-size:13px;">' + starString(r.stars) + '</span> ' +
           (r.source === 'client' ? '<span class="rev-pending">FROM CLIENT</span>' : '') +
+          (r.published ? '<span class="rev-live">LIVE ON SITE</span>' : '<span class="rev-pending">NOT SHOWN YET</span>') +
           '<p class="rev-row-text">' + escapeHtml(r.text) + '</p>' +
           (r.response ?
             '<div class="review-reply" style="margin-top:10px;">' +
@@ -3742,11 +3876,29 @@
             if(r.photosPublic && pc > 0) return '<span class="rev-photo-on">\u2713 ' + pc + ' photo' + (pc>1?'s':'') + ' attached</span>';
             return '';
           })() +
+          '<button type="button" class="btn-mini rev-pub" data-id="' + r.id + '">' + (r.published ? 'Hide from site' : 'Show on site') + '</button>' +
           '<button type="button" class="btn-mini rev-reply" data-id="' + r.id + '">' + (r.response ? 'Edit reply' : 'Respond') + '</button>' +
           '<button type="button" class="btn-mini btn-danger rev-del" data-id="' + r.id + '">Remove</button>' +
         '</div>' +
       '</div>';
     }).join('');
+
+    Array.prototype.forEach.call(list.querySelectorAll('.rev-pub'), function(btn){
+      btn.addEventListener('click', async function(){
+        var id = btn.getAttribute('data-id');
+        var r = reviews.find(function(x){ return x.id === id; });
+        if(!r) return;
+        btn.disabled = true;
+        r.published = !r.published;
+        var ok = await saveReviews(reviews);
+        btn.disabled = false;
+        if(!ok){
+          r.published = !r.published;
+          showNotice('That did not save. Check your connection and try again.');
+        }
+        renderOwnerReviews();
+      });
+    });
 
     Array.prototype.forEach.call(list.querySelectorAll('.rev-reply'), function(btn){
       btn.addEventListener('click', function(){
