@@ -653,6 +653,10 @@
     font-size:15px;font-family:'Work Sans',sans-serif;box-sizing:border-box;
   }
   .gate-err{color:var(--full);font-size:13px;margin:10px 0 0;min-height:18px;}
+  .gate-version{
+    font-size:11.5px;letter-spacing:.06em;color:var(--steel);
+    margin:10px 0 0;font-weight:600;text-transform:uppercase;
+  }
   .gate-public-note{
     font-size:12.5px;color:var(--muted);margin:16px 0 0;padding-top:14px;
     border-top:1px solid var(--line-soft);line-height:1.5;
@@ -1074,6 +1078,7 @@
       </div>
       <p class="gate-err" id="gateErr"></p>
       <p class="gate-public-note">Looking to book a cleaning? Switch back to <strong>Client site</strong> and use Request cleaning.</p>
+      <p class="gate-version">Version 2 &middot; 23 Sept &middot; reviews fixed</p>
     </div>
   </div>
 
@@ -4181,12 +4186,22 @@
   async function refreshOwnerData(){
     bookings = await loadBookings();
     chatMessages = await loadMessages();
+    // Reviews, job photos and the client list are owner-only. Whatever was
+    // loaded before signing in was empty, so without reloading them here the
+    // Reviews, Photos and Clients tabs stay blank and show no buttons.
+    reviews = await loadReviews();
+    photoLog = await loadPhotoLog();
+    blocked = await loadBlocked();
     renderOwnerCalendar();
     renderStats();
     renderRequestList();
     renderApptList();
     renderClientCalendar();
     renderSlots();
+    if(typeof renderOwnerReviews === 'function') renderOwnerReviews();
+    if(typeof renderPhotoLog === 'function') renderPhotoLog();
+    if(typeof renderClientList === 'function') renderClientList();
+    if(typeof populatePropertyPickers === 'function') populatePropertyPickers();
   }
 
   function startOwnerPoll(){
