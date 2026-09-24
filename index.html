@@ -917,7 +917,7 @@
         <p><strong>Fair, straightforward pricing. A face you recognize at the door. Communication that actually comes back to you.</strong> Reach out and Mid Made will get your booking coordinated right away.</p>
         <div class="hero-chips">
           <span class="hero-chip"><b>Locally run</b> Cook County NW suburbs</span>
-          <span class="hero-chip"><b>Open at noon</b> · we work around most accommodations via coordination</span>
+          <span class="hero-chip"><b>Flexible hours</b> · we work around most accommodations via coordination</span>
           <span class="hero-chip"><b>Homes · Offices · Storefronts</b></span>
           <span class="hero-chip"><b>Owner-operated</b> same person every visit</span>
           <span class="hero-chip"><b>Request online</b> takes about a minute</span>
@@ -1078,7 +1078,7 @@
       </div>
       <p class="gate-err" id="gateErr"></p>
       <p class="gate-public-note">Looking to book a cleaning? Switch back to <strong>Client site</strong> and use Request cleaning.</p>
-      <p class="gate-version">Version 2 &middot; 23 Sept &middot; reviews fixed</p>
+      <p class="gate-version">Version 5 &middot; 23 Sept &middot; customer chat fixed</p>
     </div>
   </div>
 
@@ -2033,7 +2033,11 @@
     }
 
     var newBooking = {
-      id: 'bk_' + Date.now() + '_' + Math.floor(Math.random()*10000),
+      // Settle the id HERE, before anything remembers it. It used to be
+      // renamed when the request was saved, which left the chat and the
+      // status watcher pointing at an id the database had never heard of —
+      // so the customer's messages were silently rejected.
+      id: newId(),
       dateISO: selectedDateISO,
       time: null,
       name: name, phone: phone, email: email, address: address,
@@ -2044,6 +2048,7 @@
     };
     bookings.push(newBooking);
     myLastBookingId = newBooking.id;
+    lsSet(MY_JOB_KEY, newBooking.id);
     pendingClientPhotos = [];
     document.getElementById('clientChatWidget').style.display = 'block';
     startClientStatusWatch();
@@ -2375,12 +2380,15 @@
       items = bookings.filter(function(b){ return b.dateISO >= today && b.status === 'upcoming'; });
     }
 
-    // newest at the top, oldest at the bottom
+    // Soonest job first, so the top of the list is what happens next.
+    // A job with no date yet drops to the bottom rather than jumping the queue.
     items = items.slice().sort(function(a,b){
+      var da = a.dateISO || '9999-12-31', db = b.dateISO || '9999-12-31';
+      if(da !== db) return da < db ? -1 : 1;
+      var ta = a.time || '99:99', tb = b.time || '99:99';
+      if(ta !== tb) return ta < tb ? -1 : 1;
       var ca = a.createdAt || '', cb = b.createdAt || '';
-      if(ca !== cb) return ca < cb ? 1 : -1;
-      if(a.dateISO !== b.dateISO) return a.dateISO < b.dateISO ? 1 : -1;
-      return (a.time || '') < (b.time || '') ? 1 : -1;
+      return ca < cb ? -1 : (ca > cb ? 1 : 0);
     });
 
     if(items.length === 0){
@@ -3849,6 +3857,11 @@
   }
 
 
+  // Which reply box is open, and what is typed in it. Held outside the render
+  // so the background refresh cannot close the box or wipe the words.
+  var openReplyId = null;
+  var openReplyDraft = null;
+
   function renderOwnerReviews(){
     var list = document.getElementById('revList');
     if(!list) return;
@@ -3905,10 +3918,38 @@
       });
     });
 
+    // Reopen the box the owner had open, and put their half-typed reply back.
+    if(openReplyId){
+      var reopen = document.getElementById('replyBox_' + openReplyId);
+      if(reopen){
+        reopen.style.display = 'block';
+        var rta = document.getElementById('replyText_' + openReplyId);
+        if(rta && openReplyDraft !== null) rta.value = openReplyDraft;
+      } else {
+        openReplyId = null; openReplyDraft = null;
+      }
+    }
+
     Array.prototype.forEach.call(list.querySelectorAll('.rev-reply'), function(btn){
       btn.addEventListener('click', function(){
-        var box = document.getElementById('replyBox_' + btn.getAttribute('data-id'));
-        if(box) box.style.display = (box.style.display === 'none') ? 'block' : 'none';
+        var id = btn.getAttribute('data-id');
+        var box = document.getElementById('replyBox_' + id);
+        if(!box) return;
+        var opening = (box.style.display === 'none');
+        box.style.display = opening ? 'block' : 'none';
+        openReplyId = opening ? id : null;
+        openReplyDraft = null;
+        if(opening){
+          var ta = document.getElementById('replyText_' + id);
+          if(ta){ ta.focus(); }
+        }
+      });
+    });
+
+    // Keep hold of what is being typed so a background refresh cannot lose it.
+    Array.prototype.forEach.call(list.querySelectorAll('.rev-reply-box textarea'), function(ta){
+      ta.addEventListener('input', function(){
+        if(openReplyId && ta.id === 'replyText_' + openReplyId) openReplyDraft = ta.value;
       });
     });
     Array.prototype.forEach.call(list.querySelectorAll('.rev-reply-save'), function(btn){
@@ -3916,10 +3957,19 @@
         var id = btn.getAttribute('data-id');
         var ta = document.getElementById('replyText_' + id);
         var val = (ta && ta.value || '').trim();
+        btn.disabled = true; btn.textContent = 'Saving\u2026';
         reviews = await loadReviews();
         var r = reviews.find(function(x){ return String(x.id) === String(id); });
         if(r){ r.response = val; }
-        await saveReviews(reviews);
+        var okSave = await saveReviews(reviews);
+        btn.disabled = false; btn.textContent = 'Save response';
+        if(!okSave){
+          // leave the box open with their words still in it
+          openReplyDraft = val;
+          showNotice('That reply did not save. Check your connection and try again.');
+          return;
+        }
+        openReplyId = null; openReplyDraft = null;
         renderOwnerReviews();
         renderClientReviews();
       });
@@ -3928,8 +3978,13 @@
       btn.addEventListener('click', async function(){
         if(!await askConfirm('Remove this review permanently?', 'Remove')) return;
         var id = btn.getAttribute('data-id');
+        if(openReplyId === id){ openReplyId = null; openReplyDraft = null; }
         reviews = reviews.filter(function(x){ return String(x.id) !== String(id); });
-        await saveReviews(reviews);
+        var okDel = await saveReviews(reviews);
+        if(!okDel){
+          reviews = await loadReviews();
+          showNotice('That did not delete. Check your connection and try again.');
+        }
         renderOwnerReviews();
         renderClientReviews();
       });
@@ -4210,7 +4265,7 @@
       var view = document.getElementById('ownerView');
       if(!view || view.style.display === 'none' || !ownerUnlocked) return;
       var dm = document.getElementById('dayModal');
-      if(openEditorId || (dm && dm.style.display === 'flex')) return;
+      if(openEditorId || openReplyId || (dm && dm.style.display === 'flex')) return;
       await refreshOwnerData();
     }, 5000);
   }
@@ -4408,6 +4463,28 @@
   });
 
   /* ===== Init ===== */
+  // A customer who closes the tab and comes back should still find their
+  // conversation. The job id is kept in their own browser and checked
+  // against the database on the way in.
+  var MY_JOB_KEY = 'midmade_my_job';
+  async function restoreMyThread(){
+    if(ownerSignedIn()) return;
+    try{
+      var mine = await myOwnRequests();
+      if(!mine.length){ lsDel(MY_JOB_KEY); return; }
+      var saved = lsGet(MY_JOB_KEY);
+      var row = (saved && mine.find(function(x){ return x.id === saved; })) || mine[0];
+      if(!row) return;
+      myLastBookingId = row.id;
+      lsSet(MY_JOB_KEY, row.id);
+      var w = document.getElementById('clientChatWidget');
+      if(w) w.style.display = 'block';
+      chatMessages = await loadMessages();
+      if(typeof refreshClientChat === 'function') refreshClientChat();
+      startClientStatusWatch();
+    }catch(e){}
+  }
+
   async function init(){
     loadSession();
     refreshGateFields();
@@ -4424,6 +4501,7 @@
     renderRequestList();
     renderStats();
     populatePropertyPickers();
+    await restoreMyThread();
   }
   init();
 })();
