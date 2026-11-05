@@ -72,11 +72,7 @@
     font-family:'Work Sans',sans-serif;
   }
   .navlink-btn:hover{border-color:var(--steel);}
-  .view-toggle{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--white);flex:none;}
-  /* The phone menu. Hidden entirely on a computer, where the links sit in
-     the bar as they always have. */
-  .nav-toggle-box{position:absolute;width:0;height:0;opacity:0;pointer-events:none;}
-  .nav-burger{display:none;}
+  .view-toggle{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--white);}
   .toggle-btn{
     border:none;background:transparent;padding:8px 16px;font-size:13px;font-weight:600;
     cursor:pointer;color:var(--muted);
@@ -166,10 +162,6 @@
   }
   .btn-ghost{color:var(--ink);border-color:var(--line);}
   .btn-ghost:hover{border-color:var(--ink);}
-  /* Not a control: it states the number rather than doing anything. */
-  .btn-static{cursor:default;user-select:text;-webkit-user-select:text;}
-  .btn-static:hover{border-color:var(--line);}
-  .btn-static strong{font-weight:700;white-space:nowrap;}
 
   /* ===== Sections generic ===== */
   section{padding:64px 28px;}
@@ -244,15 +236,9 @@
   .cal-day .dot{width:5px;height:5px;border-radius:50%;margin-top:3px;}
   .cal-day.open .dot{background:var(--open);}
   .cal-day.full{background:#FBEFEC;color:#B4776B;cursor:pointer;}
-  .cal-day.full.held{cursor:default;}
-  .cal-day.notyet{color:#CFCABD;cursor:not-allowed;background:transparent;}
   .cal-day.full .dot{background:var(--full);}
   .cal-day.reqfull{background:repeating-linear-gradient(135deg,#F0E6E4,#F0E6E4 4px,#E7D8D5 4px,#E7D8D5 8px);color:#9C8C88;cursor:not-allowed;}
   .cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:16px 0 0;align-items:center;}
-  .cal-note{
-    margin:16px 0 0;padding-top:14px;border-top:1px solid var(--line-soft);
-    font-size:12px;line-height:1.5;color:var(--muted);text-wrap:pretty;
-  }
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;}
   .dot-open{background:var(--open);}
   .dot-full{background:var(--full);}
@@ -667,10 +653,6 @@
     font-size:15px;font-family:'Work Sans',sans-serif;box-sizing:border-box;
   }
   .gate-err{color:var(--full);font-size:13px;margin:10px 0 0;min-height:18px;}
-  .gate-version{
-    font-size:11.5px;letter-spacing:.06em;color:var(--steel);
-    margin:10px 0 0;font-weight:600;text-transform:uppercase;
-  }
   .gate-public-note{
     font-size:12.5px;color:var(--muted);margin:16px 0 0;padding-top:14px;
     border-top:1px solid var(--line-soft);line-height:1.5;
@@ -875,82 +857,28 @@
   .act-delete:hover{border-color:var(--full);color:var(--full);}
 
   @media (max-width:860px){
-    /* ---- the bar across the top ----
-       One compact row: name, the three views, then the menu button. The name
-       is kept on a single line so the bar stays short and nothing is cut off
-       at the edge of the screen. */
-    .topbar{padding:10px 12px;gap:8px;}
-    .brand-name{font-size:18px;white-space:nowrap;}
-    .brand-sub{font-size:8px;letter-spacing:.1em;white-space:nowrap;margin-top:2px;}
-    .toggle-btn{padding:7px 9px;font-size:10.5px;}
-
-    .nav-burger{
-      display:flex;flex-direction:column;justify-content:center;gap:4px;
-      width:38px;height:34px;padding:0 8px;flex:none;cursor:pointer;
-      border:1px solid var(--line);border-radius:9px;background:var(--white);
-      -webkit-tap-highlight-color:transparent;
-    }
-    .nav-burger span{display:block;height:2px;border-radius:2px;background:var(--ink);}
-
-    /* The links drop down from the bar instead of vanishing. */
-    .topnav{
-      display:none;position:absolute;top:100%;right:12px;z-index:60;
-      flex-direction:column;align-items:stretch;gap:2px;min-width:200px;
-      padding:6px;background:var(--white);
-      border:1px solid var(--line);border-radius:12px;
-      box-shadow:0 12px 30px rgba(27,36,48,.16);
-    }
-    .nav-toggle-box:checked ~ .topnav{display:flex;}
-    .topnav .navlink-btn{
-      padding:12px 12px;font-size:15px;text-align:left;
-      border-bottom:none;border-radius:8px;color:var(--ink);
-    }
-    .topnav .navlink-btn:active{background:var(--steel-light);}
-
-    /* ---- the first screen ----
-       The photo leads, the way it does on a computer, so a scanned code
-       opens on something to look at rather than a wall of words. */
+    .topnav{display:none;}
     .hero{grid-template-columns:1fr;min-height:0;}
-    .hero-photo{order:-1;}
-    .hero-content{padding-top:26px;}
-    .hero-photo img{height:38vh;min-height:220px;max-height:340px;width:100%;object-fit:cover;}
-    .hero-content h1{font-size:34px;}
-    .hero-eyebrow-script{font-size:30px;margin-bottom:10px;}
+    .hero-photo{order:1;}
+    .hero-content{padding-top:34px;}
+    .hero-photo img{max-height:52vh;object-fit:cover;}
     .service-grid{grid-template-columns:1fr;gap:26px;}
     .service-card{border-left:none;border-top:1px solid var(--line-soft);padding-top:26px;}
     .service-card:first-child{border-top:none;padding-top:8px;}
     .how-steps{grid-template-columns:1fr;}
     .booking-panel{grid-template-columns:1fr;}
     .calendar-col{border-right:none;border-bottom:1px solid var(--line);}
-    /* No tall empty box under the calendar before a day is picked. */
-    .slots-col, .form-col{padding:20px 18px;}
-    .placeholder-text{margin:6px 0;}
     .gallery-grid{column-count:2;}
     .owner-body{grid-template-columns:1fr;}
     .photo-layout{grid-template-columns:1fr;}
     .field-row{grid-template-columns:1fr;}
     .footer-main{flex-direction:column;align-items:flex-start;}
   }
-
-  @media (max-width:620px){
-    /* Phone width: drop the tagline from the bar so the three views and the
-       menu button both fit on the line with nothing cut off at the edge. */
-    .brand-sub{display:none;}
-    /* A thumb needs more than 31px. This is how a visitor who taps Owner by
-       mistake gets back to booking, so it has to be easy to hit. */
-    .gate-exit{
-      width:44px;height:44px;padding:0;top:-12px;right:-8px;
-      display:flex;align-items:center;justify-content:center;
-    }
-    .toggle-btn{padding:7px 8px;font-size:10px;}
-    .topbar{gap:6px;padding:10px;}
-  }
 </style>
 </head>
 <body>
 
 <header class="topbar">
-  <input type="checkbox" id="navToggle" class="nav-toggle-box" aria-label="Menu">
   <div class="brand" id="logoHome">
     <span class="brand-name">MID MADE</span>
     <span class="brand-sub">WINDOW CLEANING CO.</span>
@@ -965,9 +893,6 @@
     <button class="toggle-btn" id="btnOwnerView">Owner schedule</button>
     <button class="toggle-btn" id="btnReviewsView">Reviews</button>
   </div>
-  <label for="navToggle" class="nav-burger" aria-label="Menu" title="Menu">
-    <span></span><span></span><span></span>
-  </label>
 </header>
 
 <main id="clientView">
@@ -979,7 +904,8 @@
       <p class="hero-sub">Residential, commercial and storefront window cleaning, locally operated in the Cook County northwest suburbs.</p>
       <div class="hero-actions">
         <button type="button" class="btn btn-primary" id="heroRequestBtn">Request a cleaning</button>
-        <span class="btn btn-ghost btn-static">Text for a quote: <strong>224-622-1515</strong></span>
+        <a href="tel:+12246221515" class="btn btn-ghost js-dial" data-kind="tel">Call</a>
+        <a href="sms:+12246221515" class="btn btn-ghost js-dial" data-kind="sms">Text</a>
       </div>
       <div class="hero-note">
         <p class="hero-note-label">Why Mid Made</p>
@@ -987,7 +913,7 @@
         <p><strong>Fair, straightforward pricing. A face you recognize at the door. Communication that actually comes back to you.</strong> Reach out and Mid Made will get your booking coordinated right away.</p>
         <div class="hero-chips">
           <span class="hero-chip"><b>Locally run</b> Cook County NW suburbs</span>
-          <span class="hero-chip"><b>Flexible hours</b> · we work around most accommodations via coordination</span>
+          <span class="hero-chip"><b>Open at noon</b> · we work around most accommodations via coordination</span>
           <span class="hero-chip"><b>Homes · Offices · Storefronts</b></span>
           <span class="hero-chip"><b>Owner-operated</b> same person every visit</span>
           <span class="hero-chip"><b>Request online</b> takes about a minute</span>
@@ -1038,7 +964,7 @@
         <li>
           <span class="num">1</span>
           <h4>Pick a preferred day</h4>
-          <p>Select jobs are taken per day. Overload throws quality out the &ldquo;window&rdquo;.</p>
+          <p>The calendar shows how full each day is. Only a few jobs are taken per day.</p>
         </li>
         <li>
           <span class="num">2</span>
@@ -1068,7 +994,7 @@
     <div class="section-inner">
       <div class="section-head">
         <h2>Request a cleaning</h2>
-        <p>Pick a day, add your preferred time in the notes, and Mid Made will confirm it directly.</p>
+        <p>Up to 3 jobs a day. See what's open below, pick a day, and add your preferred time in the notes — Mid Made will confirm it directly.</p>
       </div>
       <div class="booking-panel">
         <div class="calendar-col">
@@ -1080,11 +1006,10 @@
           <div class="cal-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
           <div class="cal-grid" id="calGrid"></div>
           <div class="cal-legend">
-            <span><span class="dot dot-open"></span>Taking requests</span>
-            <span><span class="dot dot-full"></span>Booked</span>
-            <span><span class="dot dot-closed"></span>Not working</span>
+            <span><span class="dot dot-open"></span>Spots open</span>
+            <span><span class="dot dot-full"></span>Day full</span>
+            <span><span class="dot dot-closed"></span>Weekend</span>
           </div>
-          <p class="cal-note">All requests are finalized at the end of the week. A request being accepted is not a guaranteed confirmation due to a busy schedule. Mid Made will be in contact through the direct chat once your request is submitted.</p>
         </div>
 
         <div class="slots-col" id="slotsCol">
@@ -1149,7 +1074,6 @@
       </div>
       <p class="gate-err" id="gateErr"></p>
       <p class="gate-public-note">Looking to book a cleaning? Switch back to <strong>Client site</strong> and use Request cleaning.</p>
-      <p class="gate-version">Version 15 &middot; 7 Oct &middot; phone layout matches the computer</p>
     </div>
   </div>
 
@@ -1315,90 +1239,6 @@
   var MAX_PER_DAY = 3;      // confirmed jobs Mid Made will actually do in a day
   var MAX_REQ_PER_DAY = 5;  // how many pending requests a single day can collect
   var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-  // Mid Made works Monday to Thursday. Friday, Saturday and Sunday are closed.
-  // Every part of the site asks THIS, so the calendar, the day list, the owner
-  // warnings and the day panel can never disagree about which days are open.
-  var WORK_DAYS = [1, 2, 3, 4];
-  function isClosedWeekday(d){
-    return WORK_DAYS.indexOf(d.getDay()) === -1;
-  }
-
-  /* ---- how far ahead a client may ask ----
-     Dates are released a WHOLE WEEK at a time, every Wednesday, three weeks
-     ahead. Weeks are never cut in half: if a week is open then all of its
-     Monday to Thursday is open, so the last bookable day is always a
-     Thursday. The edge sits still from Thursday through Tuesday and then
-     adds one complete week every Wednesday, which gives people a reason to
-     come back on the day they actually have time to sit down and send a
-     request. Counted from the clock on the visitor's own device, so it keeps
-     working forever with nothing to edit. */
-  var RELEASE_WEEKDAY = 3;    // 0 Sunday ... 3 Wednesday
-  var WEEKS_AHEAD     = 3;    // whole weeks open beyond the release week
-
-  /* ---- days deliberately held back ----
-     Any date on or before this one shows as Booked on the public calendar and
-     cannot be picked, whatever the real schedule says. Set while Mid Made is
-     working word of mouth only. It expires by itself once the date passes;
-     set it to '' to switch it off early. The owner side ignores this
-     completely, so jobs can still be added to these days by hand. */
-  var HELD_UNTIL_ISO = '2026-10-11';
-
-  function heldBack(iso){
-    return !!HELD_UNTIL_ISO && iso <= HELD_UNTIL_ISO;
-  }
-  /* The release day on or before today. On a Wednesday that is today. */
-  function lastReleaseDate(){
-    var d = new Date(); d.setHours(0,0,0,0);
-    var back = (d.getDay() - RELEASE_WEEKDAY + 7) % 7;
-    d.setDate(d.getDate() - back);
-    return d;
-  }
-  /* The Monday that starts the week containing d. */
-  function weekStartOf(d){
-    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-    return x;
-  }
-  /* Last date a client may ask for: the Sunday that closes the third week
-     after the release week. Landing on a week boundary is what keeps every
-     released week whole. */
-  function bookWindowEndISO(){
-    var w = weekStartOf(lastReleaseDate());
-    w.setDate(w.getDate() + WEEKS_AHEAD * 7 + 6);
-    return toISO(w);
-  }
-  /* Is there any day in this month a client could still ask for? The arrow
-     rule asks this rather than comparing against the raw edge, because the
-     edge falls on a Sunday and Mid Made does not work weekends. */
-  function monthHasOpenDay(monthDate){
-    var y = monthDate.getFullYear(), m = monthDate.getMonth();
-    var last = new Date(y, m + 1, 0).getDate();
-    var end = bookWindowEndISO(), today = todayISO();
-    for(var day = 1; day <= last; day++){
-      var dt = new Date(y, m, day), iso = toISO(dt);
-      if(iso < today) continue;
-      if(iso > end) break;
-      if(isClosedWeekday(dt)) continue;
-      if(heldBack(iso)) continue;
-      return true;
-    }
-    return false;
-  }
-  function beyondWindow(iso){
-    return iso > bookWindowEndISO();
-  }
-  /* The one question every client-facing part of the site asks, so the
-     calendar, the click handler and the submit check can never disagree. */
-  function clientCanRequest(iso){
-    var d = new Date(iso + 'T00:00:00');
-    if(isClosedWeekday(d)) return false;
-    if(iso < todayISO()) return false;
-    if(heldBack(iso)) return false;
-    if(beyondWindow(iso)) return false;
-    if(pendingForDate(iso) >= MAX_REQ_PER_DAY) return false;
-    return true;
-  }
 
 
   var bookings = [];
@@ -1924,14 +1764,6 @@
 
   function renderClientCalendar(){
     document.getElementById('calMonthLabel').textContent = MONTH_NAMES[clientCalMonth.getMonth()] + ' ' + clientCalMonth.getFullYear();
-    var nextBtn = document.getElementById('nextMonth');
-    if(nextBtn){
-      var probe = new Date(clientCalMonth.getFullYear(), clientCalMonth.getMonth()+1, 1);
-      var dead = !monthHasOpenDay(probe);
-      nextBtn.disabled = dead;
-      nextBtn.style.opacity = dead ? '0.3' : '';
-      nextBtn.style.cursor = dead ? 'default' : '';
-    }
     var grid = document.getElementById('calGrid');
     grid.innerHTML = '';
     var cells = buildMonthGrid(clientCalMonth);
@@ -1946,35 +1778,27 @@
       cell.appendChild(num);
 
       var isPast = date < today;
-      var isClosedDay = isClosedWeekday(date);
-      var isBooked = dayLoadForDate(iso) >= MAX_PER_DAY;
+      var isClosedDay = date.getDay() === 0 || date.getDay() === 6;
+      var load = dayLoadForDate(iso);
+      var reqLoad = pendingForDate(iso);
+      var isBooked = load >= MAX_PER_DAY;
+      var reqFull = reqLoad >= MAX_REQ_PER_DAY;
 
       if(isPast || isClosedDay){
         cell.classList.add(isClosedDay && !isPast ? 'closed' : 'past');
         if(isPast) cell.title = 'Past date';
-        else cell.title = 'Closed Friday to Sunday — ask in your request if you need one';
-      } else if(heldBack(iso)){
-        /* Held back on purpose: reads as booked and cannot be picked. */
-        cell.classList.add('full'); cell.classList.add('held');
-        cell.title = 'Booked';
-        var dotH = document.createElement('span'); dotH.className='dot'; cell.appendChild(dotH);
-        /* A dead square reads as a broken site, so the click still answers. */
-        cell.addEventListener('click', function(){ selectDate(iso); });
-      } else if(beyondWindow(iso)){
-        cell.classList.add('notyet');
-        cell.title = 'Opens closer to the date';
-        cell.addEventListener('click', function(){ selectDate(iso); });
-      } else if(pendingForDate(iso) >= MAX_REQ_PER_DAY){
+        else cell.title = 'Weekends by arrangement — mention it in your request';
+      } else if(reqFull){
         cell.classList.add('reqfull');
-        cell.title = 'Already several people waiting on this day — please choose another';
+        cell.title = 'This day has reached its request limit — please choose another date';
       } else if(isBooked){
         cell.classList.add('full');
-        cell.title = 'Booked — ask anyway and Mid Made will offer the closest opening';
+        cell.title = 'Already busy — you can still request it and Mid Made will confirm or suggest another day';
         var dot = document.createElement('span'); dot.className='dot'; cell.appendChild(dot);
         cell.addEventListener('click', function(){ selectDate(iso); });
       } else {
         cell.classList.add('open');
-        cell.title = 'Taking requests';
+        cell.title = load > 0 ? (MAX_PER_DAY - load) + ' of ' + MAX_PER_DAY + ' spots left' : 'Open';
         var dot2 = document.createElement('span'); dot2.className='dot'; cell.appendChild(dot2);
         cell.addEventListener('click', function(){ selectDate(iso); });
       }
@@ -1984,16 +1808,8 @@
   }
 
   function selectDate(iso){
-    if(heldBack(iso)){
-      showNotice('This week is fully booked.\n\nPlease pick a later day, or text 224-622-1515 if it cannot wait.');
-      return;
-    }
-    if(beyondWindow(iso)){
-      showNotice('Mid Made takes requests about three weeks ahead.\n\nNew dates open every Wednesday — check back then.');
-      return;
-    }
     if(pendingForDate(iso) >= MAX_REQ_PER_DAY){
-      showNotice('Already several people waiting on this day.\n\nPlease choose another date, or text 224-622-1515.');
+      showNotice('This day has reached its limit of ' + MAX_REQ_PER_DAY + ' requests. Please choose another date.');
       return;
     }
     selectedDateISO = iso;
@@ -2007,19 +1823,62 @@
 
   function renderSlots(){
     var col = document.getElementById('slotsCol');
-    if(!col) return;
-    col.innerHTML = '<p class="placeholder-text">Pick a date on the calendar to start a request.</p>';
+    var today = new Date(); today.setHours(0,0,0,0);
+
+    var days = [];
+    var cursor = new Date(today);
+    var guard = 0;
+    while(days.length < 10 && guard < 40){
+      guard++;
+      cursor.setDate(cursor.getDate() + 1);
+      var wd = cursor.getDay();
+      if(wd === 0 || wd === 6) continue;
+      days.push(new Date(cursor));
+    }
+
+    var html = '<p class="slots-date">What\'s open</p>' +
+      '<p style="font-size:13px;color:var(--muted);margin:-8px 0 14px;">Mid Made books up to ' + MAX_PER_DAY +
+      ' jobs a weekday. Busy days can still be requested \u2014 Mid Made will confirm or suggest a nearby date.</p>' +
+      '<div class="avail-list">';
+
+    days.forEach(function(d){
+      var iso = toISO(d);
+      var load = dayLoadForDate(iso);
+      var left = MAX_PER_DAY - load;
+      var reqFull = pendingForDate(iso) >= MAX_REQ_PER_DAY;
+      var booked = takenTimesForDate(iso).sort();
+      var stateClass = reqFull ? 'avail-full' : (left <= 0 ? 'avail-full' : (left === 1 ? 'avail-low' : 'avail-open'));
+      var label = reqFull ? 'Request limit reached' : (left <= 0 ? 'Full' : left + ' of ' + MAX_PER_DAY + ' open');
+
+      html += '<div class="avail-row ' + stateClass + '">' +
+        '<div class="avail-day">' + d.toLocaleDateString('en-US',{weekday:'short'}) +
+          '<span>' + d.toLocaleDateString('en-US',{month:'short', day:'numeric'}) + '</span>' +
+        '</div>' +
+        '<div class="avail-info">' +
+          '<span class="avail-label">' + label + '</span>' +
+          (booked.length ? '<span class="avail-booked">Taken: ' + booked.map(fmtTime).join(', ') + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    });
+
+    html += '</div>' +
+      '<p style="font-size:12.5px;color:var(--muted);margin-top:14px;">Weekends can sometimes be arranged — mention it in your request.</p>';
+    col.innerHTML = html;
   }
 
   function showBookingForm(){
     document.getElementById('slotsCol').style.display = 'none';
     var col = document.getElementById('formCol');
     col.style.display = 'block';
+    var left = MAX_PER_DAY - dayLoadForDate(selectedDateISO);
+    var reqLeft = MAX_REQ_PER_DAY - pendingForDate(selectedDateISO);
     col.innerHTML =
       '<button class="back-link" id="backToSlots">&larr; Choose a different date</button>' +
       '<div class="selected-slot-summary">Requested date: ' + fmtDateLong(selectedDateISO) +
         '<div style="font-weight:400;font-size:12.5px;margin-top:3px;">' +
-          'Send your details and Mid Made will confirm this day or offer the closest opening.' +
+          (left > 0 ? left + ' of ' + MAX_PER_DAY + ' spots left this day'
+                    : 'This day is already full \u2014 send it anyway and Mid Made will suggest a date that works') +
+          (reqLeft <= 2 && reqLeft > 0 ? ' \u00b7 ' + reqLeft + ' request' + (reqLeft===1?'':'s') + ' left for this day' : '') +
         '</div>' +
       '</div>' +
       '<form id="bookingForm">' +
@@ -2040,7 +1899,7 @@
           '<p class="field-error">Choose a property type.</p>' +
         '</div>' +
         '<div class="field" data-field="notes"><label for="bfNotes">Preferred time &amp; details</label>' +
-          '<textarea id="bfNotes" rows="3" placeholder="Preferred time of day, number of windows, gate code, or if another day works better"></textarea>' +
+          '<textarea id="bfNotes" rows="3" placeholder="Preferred time of day, number of windows, gate code, or if a weekend works better"></textarea>' +
           '<p class="field-error">Let us know a preferred time or any details.</p>' +
         '</div>' +
         '<div class="field" data-field="photos"><label for="bfPhotos">Photos of your home <span class="field-optional">(optional)</span></label>' +
@@ -2162,20 +2021,14 @@
       return;
     }
 
-    /* Re-checked here as well as on click, so a page left open overnight
-       cannot post into a day that has since closed. */
-    if(!clientCanRequest(selectedDateISO)){
+    if(pendingForDate(selectedDateISO) >= MAX_REQ_PER_DAY){
       submitBtn.disabled = false; submitBtn.textContent = 'Send request';
-      showNotice('That day is no longer open for requests.\n\nPlease pick another date, or text 224-622-1515.');
+      showNotice('This day has reached its limit of ' + MAX_REQ_PER_DAY + ' requests. Please pick another date, or call 224-622-1515.');
       return;
     }
 
     var newBooking = {
-      // Settle the id HERE, before anything remembers it. It used to be
-      // renamed when the request was saved, which left the chat and the
-      // status watcher pointing at an id the database had never heard of —
-      // so the customer's messages were silently rejected.
-      id: newId(),
+      id: 'bk_' + Date.now() + '_' + Math.floor(Math.random()*10000),
       dateISO: selectedDateISO,
       time: null,
       name: name, phone: phone, email: email, address: address,
@@ -2186,7 +2039,6 @@
     };
     bookings.push(newBooking);
     myLastBookingId = newBooking.id;
-    lsSet(MY_JOB_KEY, newBooking.id);
     pendingClientPhotos = [];
     document.getElementById('clientChatWidget').style.display = 'block';
     startClientStatusWatch();
@@ -2432,10 +2284,6 @@
     renderClientCalendar();
   });
   document.getElementById('nextMonth').addEventListener('click', function(){
-    /* Nothing past the booking window can be picked, so paging into a month
-       of grey squares would only look broken. */
-    var probe = new Date(clientCalMonth.getFullYear(), clientCalMonth.getMonth()+1, 1);
-    if(!monthHasOpenDay(probe)) return;
     clientCalMonth.setMonth(clientCalMonth.getMonth()+1);
     renderClientCalendar();
   });
@@ -2522,15 +2370,12 @@
       items = bookings.filter(function(b){ return b.dateISO >= today && b.status === 'upcoming'; });
     }
 
-    // Soonest job first, so the top of the list is what happens next.
-    // A job with no date yet drops to the bottom rather than jumping the queue.
+    // newest at the top, oldest at the bottom
     items = items.slice().sort(function(a,b){
-      var da = a.dateISO || '9999-12-31', db = b.dateISO || '9999-12-31';
-      if(da !== db) return da < db ? -1 : 1;
-      var ta = a.time || '99:99', tb = b.time || '99:99';
-      if(ta !== tb) return ta < tb ? -1 : 1;
       var ca = a.createdAt || '', cb = b.createdAt || '';
-      return ca < cb ? -1 : (ca > cb ? 1 : 0);
+      if(ca !== cb) return ca < cb ? 1 : -1;
+      if(a.dateISO !== b.dateISO) return a.dateISO < b.dateISO ? 1 : -1;
+      return (a.time || '') < (b.time || '') ? 1 : -1;
     });
 
     if(items.length === 0){
@@ -2577,7 +2422,7 @@
           '<div class="field"><label for="date-'+b.id+'">Date</label><input type="date" id="date-'+b.id+'" class="sched-date" value="'+b.dateISO+'"></div>' +
           '<div class="field"><label for="time-'+b.id+'">Time</label><select id="time-'+b.id+'" class="sched-time">'+moveOptions+'</select></div>' +
         '</div>' +
-        '<p style="font-size:12px;color:var(--muted);margin:0 0 10px;">Closed days are allowed here — coordinate with the client over Message first.</p>' +
+        '<p style="font-size:12px;color:var(--muted);margin:0 0 10px;">Weekends are allowed here — coordinate with the client over Message first.</p>' +
         '<button class="btn btn-steel btn-sm confirm-schedule" data-id="'+b.id+'">Save change</button> ' +
         '<button class="btn btn-outline btn-sm cancel-schedule" data-id="'+b.id+'">Cancel</button>' +
       '</div>' +
@@ -2672,8 +2517,8 @@
           if(!await askConfirm('That day already has ' + dayCount + ' jobs scheduled. Add this one anyway?', 'Add anyway')) return;
         }
         var d = new Date(newDate + 'T00:00:00');
-        if(isClosedWeekday(d)){
-          if(!await askConfirm('That is a closed day (Mid Made works Monday to Thursday). Make sure it is coordinated with the client. Continue?', 'Continue')) return;
+        if(d.getDay() === 0 || d.getDay() === 6){
+          if(!await askConfirm('That is a weekend date. Make sure it is coordinated with the client. Continue?', 'Continue')) return;
         }
         var b = bookings.find(function(x){ return x.id === id; });
         if(b){
@@ -2962,7 +2807,7 @@
             '<div class="field"><label for="date-'+b.id+'">Date</label><input type="date" id="date-'+b.id+'" class="sched-date" value="'+b.dateISO+'"></div>' +
             '<div class="field"><label for="time-'+b.id+'">Time</label><select id="time-'+b.id+'" class="sched-time">'+timeOptions+'</select></div>' +
           '</div>' +
-          '<p style="font-size:12px;color:var(--muted);margin:0 0 10px;">Changed the date? Use Chat first so the client knows. Closed days are allowed here.</p>' +
+          '<p style="font-size:12px;color:var(--muted);margin:0 0 10px;">Changed the date? Use Chat first so the client knows. Weekends are allowed here.</p>' +
           '<button class="btn btn-steel btn-sm confirm-schedule" data-id="'+b.id+'">Accept &amp; add to calendar</button> ' +
           '<button class="btn btn-outline btn-sm cancel-schedule" data-id="'+b.id+'">Cancel</button>' +
         '</div>' +
@@ -3104,7 +2949,7 @@
   function openDayModal(iso){
     currentDayISO = iso;
     var d = new Date(iso + 'T00:00:00');
-    var isWeekend = isClosedWeekday(d);
+    var isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
     var dayJobs = bookings.filter(function(b){
       return b.dateISO === iso && (b.status === 'upcoming' || b.status === 'completed');
@@ -3121,7 +2966,7 @@
     var html = '';
 
     if(isWeekend){
-      html += '<div class="day-weekend-note">Closed day \u2014 outside Monday to Thursday. Only book after coordinating with the client.</div>';
+      html += '<div class="day-weekend-note">Weekend \u2014 outside normal hours. Only book after coordinating with the client.</div>';
     }
 
     if(dayJobs.length === 0 && (ownerUnlocked ? dayRequests.length === 0 : true)){
@@ -3761,13 +3606,6 @@
     var el = document.getElementById(id);
     if(el) el.addEventListener('click', scrollToBooking);
   });
-  /* Tapping a link on a phone closes the menu, so it never covers the thing
-     it just scrolled to. */
-  var navBox = document.getElementById('navToggle');
-  var topnavEl = document.querySelector('.topnav');
-  if(navBox && topnavEl){
-    topnavEl.addEventListener('click', function(){ navBox.checked = false; });
-  }
   var navServices = document.getElementById('navServicesBtn');
   if(navServices) navServices.addEventListener('click', function(e){
     e.preventDefault();
@@ -4006,11 +3844,6 @@
   }
 
 
-  // Which reply box is open, and what is typed in it. Held outside the render
-  // so the background refresh cannot close the box or wipe the words.
-  var openReplyId = null;
-  var openReplyDraft = null;
-
   function renderOwnerReviews(){
     var list = document.getElementById('revList');
     if(!list) return;
@@ -4067,38 +3900,10 @@
       });
     });
 
-    // Reopen the box the owner had open, and put their half-typed reply back.
-    if(openReplyId){
-      var reopen = document.getElementById('replyBox_' + openReplyId);
-      if(reopen){
-        reopen.style.display = 'block';
-        var rta = document.getElementById('replyText_' + openReplyId);
-        if(rta && openReplyDraft !== null) rta.value = openReplyDraft;
-      } else {
-        openReplyId = null; openReplyDraft = null;
-      }
-    }
-
     Array.prototype.forEach.call(list.querySelectorAll('.rev-reply'), function(btn){
       btn.addEventListener('click', function(){
-        var id = btn.getAttribute('data-id');
-        var box = document.getElementById('replyBox_' + id);
-        if(!box) return;
-        var opening = (box.style.display === 'none');
-        box.style.display = opening ? 'block' : 'none';
-        openReplyId = opening ? id : null;
-        openReplyDraft = null;
-        if(opening){
-          var ta = document.getElementById('replyText_' + id);
-          if(ta){ ta.focus(); }
-        }
-      });
-    });
-
-    // Keep hold of what is being typed so a background refresh cannot lose it.
-    Array.prototype.forEach.call(list.querySelectorAll('.rev-reply-box textarea'), function(ta){
-      ta.addEventListener('input', function(){
-        if(openReplyId && ta.id === 'replyText_' + openReplyId) openReplyDraft = ta.value;
+        var box = document.getElementById('replyBox_' + btn.getAttribute('data-id'));
+        if(box) box.style.display = (box.style.display === 'none') ? 'block' : 'none';
       });
     });
     Array.prototype.forEach.call(list.querySelectorAll('.rev-reply-save'), function(btn){
@@ -4106,19 +3911,10 @@
         var id = btn.getAttribute('data-id');
         var ta = document.getElementById('replyText_' + id);
         var val = (ta && ta.value || '').trim();
-        btn.disabled = true; btn.textContent = 'Saving\u2026';
         reviews = await loadReviews();
         var r = reviews.find(function(x){ return String(x.id) === String(id); });
         if(r){ r.response = val; }
-        var okSave = await saveReviews(reviews);
-        btn.disabled = false; btn.textContent = 'Save response';
-        if(!okSave){
-          // leave the box open with their words still in it
-          openReplyDraft = val;
-          showNotice('That reply did not save. Check your connection and try again.');
-          return;
-        }
-        openReplyId = null; openReplyDraft = null;
+        await saveReviews(reviews);
         renderOwnerReviews();
         renderClientReviews();
       });
@@ -4127,13 +3923,8 @@
       btn.addEventListener('click', async function(){
         if(!await askConfirm('Remove this review permanently?', 'Remove')) return;
         var id = btn.getAttribute('data-id');
-        if(openReplyId === id){ openReplyId = null; openReplyDraft = null; }
         reviews = reviews.filter(function(x){ return String(x.id) !== String(id); });
-        var okDel = await saveReviews(reviews);
-        if(!okDel){
-          reviews = await loadReviews();
-          showNotice('That did not delete. Check your connection and try again.');
-        }
+        await saveReviews(reviews);
         renderOwnerReviews();
         renderClientReviews();
       });
@@ -4390,9 +4181,9 @@
   async function refreshOwnerData(){
     bookings = await loadBookings();
     chatMessages = await loadMessages();
-    // Reviews, job photos and the client list are owner-only. Whatever was
-    // loaded before signing in was empty, so without reloading them here the
-    // Reviews, Photos and Clients tabs stay blank and show no buttons.
+    // Reviews, job photos and the client list are owner-only, so whatever was
+    // loaded before signing in was empty. Reload them here or the Reviews,
+    // Photos and Clients tabs stay blank after a successful sign-in.
     reviews = await loadReviews();
     photoLog = await loadPhotoLog();
     blocked = await loadBlocked();
@@ -4414,7 +4205,7 @@
       var view = document.getElementById('ownerView');
       if(!view || view.style.display === 'none' || !ownerUnlocked) return;
       var dm = document.getElementById('dayModal');
-      if(openEditorId || openReplyId || (dm && dm.style.display === 'flex')) return;
+      if(openEditorId || (dm && dm.style.display === 'flex')) return;
       await refreshOwnerData();
     }, 5000);
   }
@@ -4592,16 +4383,16 @@
   }
 
 
-  /* The footer number. It never dials: forcing the page to a tel: URL just
-     blanks it wherever nothing is registered to handle one, so a click copies
-     the number instead and says so. Texting is handled by the box in the hero,
-     which simply states the number and does nothing when clicked. */
+  /* Plain tel:/sms: anchors. The browser hands off to the dialer or messages app
+     when one is registered. No script navigation and no target="_top": forcing the
+     page to a tel: URL just blanks it wherever no handler exists. If focus never
+     leaves the page, the number is shown instead so it stays usable. */
   var footerCopy = document.getElementById('footerCopyBtn');
   if(footerCopy) wireCopyButton(footerCopy, document.querySelector('.footer-phone'));
 
   Array.prototype.forEach.call(document.querySelectorAll('.js-dial'), function(el){
     el.addEventListener('click', function(ev){
-      // never navigate: a tel: hand-off blanks the page where no handler exists
+      // never navigate: a tel:/sms: hand-off blanks the page where no handler exists
       if(ev && ev.preventDefault) ev.preventDefault();
       var original = el.textContent;
       copyText(MM_PHONE_COPY, function(ok){
@@ -4612,28 +4403,6 @@
   });
 
   /* ===== Init ===== */
-  // A customer who closes the tab and comes back should still find their
-  // conversation. The job id is kept in their own browser and checked
-  // against the database on the way in.
-  var MY_JOB_KEY = 'midmade_my_job';
-  async function restoreMyThread(){
-    if(ownerSignedIn()) return;
-    try{
-      var mine = await myOwnRequests();
-      if(!mine.length){ lsDel(MY_JOB_KEY); return; }
-      var saved = lsGet(MY_JOB_KEY);
-      var row = (saved && mine.find(function(x){ return x.id === saved; })) || mine[0];
-      if(!row) return;
-      myLastBookingId = row.id;
-      lsSet(MY_JOB_KEY, row.id);
-      var w = document.getElementById('clientChatWidget');
-      if(w) w.style.display = 'block';
-      chatMessages = await loadMessages();
-      if(typeof refreshClientChat === 'function') refreshClientChat();
-      startClientStatusWatch();
-    }catch(e){}
-  }
-
   async function init(){
     loadSession();
     refreshGateFields();
@@ -4650,7 +4419,6 @@
     renderRequestList();
     renderStats();
     populatePropertyPickers();
-    await restoreMyThread();
   }
   init();
 })();
